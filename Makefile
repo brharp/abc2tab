@@ -1,12 +1,15 @@
 src = $(wildcard *.c)
 obj = $(src:.c=.o)
 
-LDFLAGS = -L ../libmus
-CFLAGS = -DDEBUG -Wall -g -I ../libmus
+CFLAGS = -DDEBUG -Wall -g 
 
 a.out: $(obj)
-	$(CC) -o $@ $^ -lmus $(LDFLAGS)
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 .PHONY: clean
 clean:
 	rm -f $(obj) a.out
+
+check: a.out
+	cd t && ./runtests
+

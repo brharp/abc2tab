@@ -1,0 +1,15 @@
+#!/bin/sh
+
+for test in *.in
+  do
+    tname=$(basename $test .in)
+    ../a.out < $tname.in > $tname.out 2> $tname.err
+    # Check standard output
+    diff $tname.out $tname.out.ref
+    # Check error output
+    if [ -f $tname.err.ref ]
+      then
+        diff $tname.err $tname.err.ref
+      fi
+  done
+

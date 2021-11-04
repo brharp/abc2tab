@@ -57,18 +57,18 @@ int	ispitch( const char c )
 }
 
 
-//	Parse an integer.
-int	get_number( const char *buffer, int *position )
+/* Parse an integer. */
+int	get_number( const char **src )
 {
-	int i = *position ;
-	int n = 0 ;
+	const char	*pos = *src ;
+	int	n = 0 ;
 
-	while ( isdigit( buffer[i] ) )
+	while ( isdigit( *pos ) )
 		{
-			n = n * 10 + ( buffer[i++] - '0' ) ;
+			n = n * 10 + ( *pos++ - '0' ) ;
 		}
 
-	*position = i ;
+	*src = pos ;
 
 	return n ;
 }
@@ -94,21 +94,26 @@ int	note_width( const char *buf )
 	if ( ispitch( buf[i] ) )
 		++i;
 
-//	Test for numerator of note duration.  
+	/* Test for numerator of note duration. */
 	if ( isdigit( buf[i] ) )
 		{
-//			Parse numerator of note duration.  
-			n = get_number( buf, &i );
+			const char *p = &buf[i] ;
+
+			/* Parse numerator of note duration. */
+			n = get_number( &p ) ;
+			i = p - buf ;
 		}
 
-//	Test for slash character indicating denominator.  
+	/*  Test for slash character indicating denominator.  */
 	if ( buf[i] == '/' )
 		{
-//			Skip over slash character.  
+			/*  Skip over slash character.  */
 			++i;
-//			Parse denominator of note duration.  
-			int rv = get_number( buf, &i );
+			const char *p = &buf[i];
+			/*  Parse denominator of note duration.  */
+			int rv = get_number( &p ) ;
 			if ( rv > 0 ) d = rv ;
+			i = p - buf ;
 		}
 
 //	Return width of note in divisions.  
