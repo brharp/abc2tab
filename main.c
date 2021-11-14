@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <string.h>
 
+typedef int PITCH ;
+
 #define	BUFSIZE	1024
 #define SHARP   '^'
 #define FLAT    '_'
@@ -74,74 +76,36 @@ int	get_number( const char **src )
 }
 
 
-//	Measure the width of a note (in divisions.)
-int	note_width( const char *buf )
+
+const char *	/*  Get whitespace.  */
+get_space( const char **src )
 {
-//	Initialize current parse position.  
-	int	i = 0;
+	const char *start ;
+	const char *pos ;
 
-//	Initialize numerator of fractional duration.  
-	int	n = 1;
+	start = pos = *src ;
 
-//	Initialize denominator of fractional duration.  
-	int	d = 1;
+	while ( isspace( *pos ) || *pos == '|' || *pos == '\\' )
+		++pos ;
 
-//	Skip over accidentals (which do not affect duration.)  
-	while ( isacc( buf[i] ) )
-		++i;
+	*src = pos ;
 
-//	Skip over pitch.  
-	if ( ispitch( buf[i] ) )
-		++i;
-
-	/* Test for numerator of note duration. */
-	if ( isdigit( buf[i] ) )
-		{
-			const char *p = &buf[i] ;
-
-			/* Parse numerator of note duration. */
-			n = get_number( &p ) ;
-			i = p - buf ;
-		}
-
-	/*  Test for slash character indicating denominator.  */
-	if ( buf[i] == '/' )
-		{
-			/*  Skip over slash character.  */
-			++i;
-			const char *p = &buf[i];
-			/*  Parse denominator of note duration.  */
-			int rv = get_number( &p ) ;
-			if ( rv > 0 ) d = rv ;
-			i = p - buf ;
-		}
-
-//	Return width of note in divisions.  
-	return (unit_length * n / d);
+	return start ;
 }
 
 
-int	note_pitch( const char *buffer )
+/*  Get next pitch from input  */
+PITCH	get_pitch( const char **src )
 {
-	int	i = 0 ;
-	int	p = 0 ;
-	int	a = 0 ;
-	char	c ;
+	const char *pos = *src ;
+	PITCH	p ;
 
-	for ( ; isacc( c = buffer[i] ); i++ )
+	if ( ! ispitch( *pos ) )
 		{
-		switch ( c )
-			{
-			case SHARP:
-				++a;
-				break;
-			case FLAT:
-				--a;
-				break;
-			}
+			return -1;
 		}
 
-	switch ( buffer[i] )
+	switch ( *pos++ )
 		{
 		case 'C': p = C3; break ;
 		case 'D': p = D3; break ;
@@ -159,34 +123,130 @@ int	note_pitch( const char *buffer )
 		case 'b': p = B4; break ;
 		}
 
-	return p + a ;
+	*src = pos ;
+
+	return p ;
 }
 
 
-int	get_note( const char *src, int *pos, char *dst )
+/*  Parse accidentals  */
+int	get_alter( const char **src )
 {
-	int i = *pos ;
-	int j = 0 ;
+	const char *pos = *src ;
+	int	a = 0 ;
 
-	while ( isspace( src[i] ) || src[i] == '|' || src[i] == '\\' )
-		++i ;
+	while ( isacc( *pos ) )
+		{
+			switch ( *pos++ )
+				{
+				case SHARP:
+					++a;
+					break;
+				case FLAT:
+					--a;
+					break;
+				}
+		}
 
-	while ( isacc( src[i] ) )
-		dst[j++] = src[i++] ;
+	*src = pos ;
 
-	if ( ispitch( src[i] ) )
-		dst[j++] = src[i++] ;
+	return a ;
+}
 
-	while ( src[i] == '/' )
-		dst[j++] = src[i++];
 
-	while ( isdigit( src[i] ) )
-		dst[j++] = src[i++];
+/*  Get duration.  */
+int	get_duration( const char **src )
+{
+	const char *pos = *src ;
+	int n = 1, d = 1, w ;
 
-	dst[j] = '\0';
-	*pos = i;
+	/* Test for numerator of note duration. */
+	if ( isdigit( *pos ) )
+		{
+			/* Parse numerator. */
+			n = get_number( &pos ) ;
+		}
 
-	return j;
+	/*  Test for slash character indicating denominator.  */
+	if ( *pos == '/' )
+		{
+			if ( isdigit( *++pos ) )
+				{
+					d = get_number( &pos ) ;
+				}
+			else
+				{
+					d = 2 ;
+					while ( *pos == '/' )
+						{
+							d *= 2;
+							++pos;
+						}
+				}
+		}
+
+	/*  Return width of note in divisions.  */
+	w = ( unit_length * n / d ) ;
+
+	/*  Advance input pointer.  */
+	*src = pos ;
+
+	return w ;
+}
+
+
+/*	Measure the width of a note (in divisions.)  */
+int note_width( const char *buf )
+{
+	/*	Skip over accidentals (which do not affect duration.)  */
+	( void ) get_alter( &buf ) ;
+
+	/*	Skip over pitch.  */
+	( void ) get_pitch( &buf ) ;
+
+	return get_duration( &buf ) ;
+}
+
+
+int	note_pitch( const char *note )
+{
+	int	p ;
+	int	a ;
+
+	a = get_alter( &note ) ;
+	p = get_pitch( &note ) ;
+
+	return ( p > 0 ? p + a : -1 ) ;
+}
+
+
+/*  get_note - note parser  */
+
+const char	*get_note( const char **src )
+{
+	const char	*start = *src ;
+	const char	*end ;
+
+	/*  Skip over leading whitespace.  */
+	( void ) get_space( &start ) ;
+
+	/*  If no more notes, return 0.  */
+	if ( *start == 0 )
+		{
+			*src = start ;
+			return 0 ;
+		}
+
+	/*  Parse accidentals, pitch, and duration.  */
+	end = start ;
+	( void ) get_alter( &end ) ;
+	( void ) get_pitch( &end ) ;
+	( void ) get_duration( &end ) ;
+
+	/*  Advance pointer.  */
+	*src = end ;
+
+	return start ;
 }
 
 
@@ -235,17 +295,16 @@ void	put_tab( const char *buffer, int n, int *width )
 
 void	put_line( const char *buffer, int line )
 {
-	int	i ;
 	int	w ;
-	char	note_buffer[BUFSIZE];
+	const char	*note ;
 
 	w = 0 ;
 
 	printf( "|-" ) ;
 
-	for ( i = 0; get_note( buffer, &i, note_buffer ) > 0; )
+	while ( ( note = get_note( &buffer ) ) )
 		{
-			put_tab( note_buffer, line, &w );
+			put_tab( note, line, &w );
 		}
 
 	printf( "-|\n" ) ;
@@ -269,44 +328,48 @@ void	put( const char *buffer )
 void	brk( void )
 {
 	if ( output_position > 0 )
-		put( output_buffer ) ;
-	output_buffer[output_position] = '\0' ;
-	output_position = 0 ;
-	output_width = 0 ;
+		{
+			output_buffer[output_position] = '\0' ;
+			output_position = 0 ;
+			output_width = 0 ;
+			put( output_buffer ) ;
+		}
 }
 
 
 //	Add note to output buffer.  
-void	put_note( const char *note_buffer )
+void	put_note( const char *note_buffer, int n )
 {
 	int w, last;
 
-//	Declare note buffer length.
-	int	n ;
-
 	w = note_width( note_buffer ) ;
-	n = strlen( note_buffer ) ;
 	last = output_position + n ;
 	if ( output_position > 0 && output_width + w > page_width )
 		{
 			last = n ;
 			brk() ; // output completed line 
 		}
-	strcpy( &output_buffer[output_position], note_buffer );
+	strncpy( &output_buffer[output_position], note_buffer, n );
 	output_position = last;
 	output_width = output_width + w;
 }
 
 
-//	Process music code.  
-void	music( const char *buffer )
+void	mystrncpy( char *dst, const char *src, size_t n )
 {
-	int  i;
-	char note_buffer[BUFSIZE];
+	strncpy( dst, src, n ) ;
+	dst[n] = 0 ;
+}
 
-	for ( i = 0; get_note( buffer, &i, note_buffer ) > 0; )
+
+//	Process music code.  
+void	music( const char *src )
+{
+	const char	*note ;
+
+	while ( ( note = get_note( &src ) ) )
 		{
-			put_note( note_buffer );
+			put_note( note, src - note ) ;
 		}
 
 	brk() ;
