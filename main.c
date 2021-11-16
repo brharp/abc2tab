@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <string.h>
 
+const char	*get_note( const char **src );
+
 typedef int PITCH ;
 
 #define	BUFSIZE	1024
@@ -56,6 +58,14 @@ int	isacc( const char c )
 int	ispitch( const char c )
 {
 	return ( 'a' <= c && c <= 'g' ) || ( 'A' <= c && c <= 'G' ) ;
+}
+
+
+
+/*  is_chord - returns true if object is a chord  */
+int	is_chord( const char *s )
+{
+	return s && *s == '[' ;
 }
 
 
@@ -195,16 +205,48 @@ int	get_duration( const char **src )
 }
 
 
-/*	Measure the width of a note (in divisions.)  */
-int note_width( const char *buf )
+/*  Measure the width of a note (in divisions.)  */
+int	note_width( const char *buf )
 {
-	/*	Skip over accidentals (which do not affect duration.)  */
+	/*  Skip over accidentals (which do not affect duration.)  */
 	( void ) get_alter( &buf ) ;
 
-	/*	Skip over pitch.  */
+	/*  Skip over pitch.  */
 	( void ) get_pitch( &buf ) ;
 
+	/*  Get duration of note.  */
 	return get_duration( &buf ) ;
+}
+
+
+/*  chord_width - returns width of chord (in divisions)  */
+int	chord_width( const char *s )
+{
+	/*  Skip over start of chord marker.  */
+	if ( *s++ != '[' )
+		return -1 ;
+
+	/*  Skip over notes within chord.  */
+	while ( *s != '\0' && *s != ']' )
+		{
+			( void ) get_note( &s ) ;
+		}
+
+	/*  Skip over end of chord marker.  */
+	if ( *s == ']' )
+		++s ;
+
+	return get_duration( &s ) ;
+}
+
+
+/*  width - returns the width of a musical object (in divisions)  */
+int	width( const char *object )
+{
+	if ( is_chord( object ) )
+		return chord_width( object ) ;
+	else
+		return note_width( object ) ;
 }
 
 
@@ -250,6 +292,71 @@ const char	*get_note( const char **src )
 }
 
 
+/*  get_chord - parse a chord  */
+const char	*get_chord( const char **src )
+{
+	const char	*start = *src ;
+	const char	*end = start ;
+
+	/*  Skip over start of chord marker.  */
+	if ( *end == '[' )
+		++end ;
+	else
+		{
+			fprintf( stderr, "error: expected '['\n" );
+			return 0 ;
+		}
+
+	/*  Parse one or more notes.  */
+	while ( *end && *end != ']' )
+		( void ) get_note( &end ) ;
+
+	/*  Skip over end of chord marker.  */
+	if ( *end == ']' )
+		++end ;
+
+	/*  Skip over duration.  */
+	( void ) get_duration( &end ) ;
+
+	/*  Advance input pointer.  */
+	*src = end ;
+
+	return start ;
+}
+
+
+/*  get_next - get next element */
+
+const char	*get_next( const char **src )
+{
+	const char	*start = *src ;
+	const char	*end ;
+
+	/*  Skip over leading whitespace.  */
+	( void ) get_space( &start ) ;
+
+	/*  If no more elements, return 0.  */
+	if ( *start == 0 )
+		{
+			*src = start ;
+			return 0 ;
+		}
+
+	/*  Parse next element.  */
+	end = start ;
+	if ( *start == '[' )
+		get_chord( &end ) ;
+	else
+		get_note( &end ) ;
+
+	/*  Advance input.  */
+	*src = end ;
+
+	/*  Return pointer to start of object.  */
+	return start ;
+}
+
+
 int	pitch_string( int p )
 {
 	int	s ;
@@ -261,25 +368,17 @@ int	pitch_string( int p )
 	return -1 ;
 }
 
-void	put_tab( const char *buffer, int n, int *width )
+
+int	put_tab_note( const char *buffer, int n, char *b )
 {
+	int	i ;
 	int	p ;
-	int	f ;
 	int	s ;
-	int	d ;
-	int	i = 0 ;
-	int	w = *width ;
-	char	b[128] ;
+	int	f ;
 
-	p = note_pitch( buffer ) ;
-	d = note_width( buffer ) ;
-
-	if ( w > 0 && w % 24 == 0 )
-		printf( "-|-" ) ;
-
-	*width = w + d ;
-
+	p = note_pitch( buffer );
 	s = pitch_string( p ) ;
+
 	if ( s == n )
 		{
 			f = p - tuning[n] ;
@@ -287,6 +386,57 @@ void	put_tab( const char *buffer, int n, int *width )
 			while ( b[i] != '\0' )
 				putchar( b[i++] ) ;
 		}
+
+	return i ;
+}
+
+
+int	put_tab_chord( const char *s, int n, char *b )
+{
+	int	i ;
+	int	imax = 0 ;
+
+	if ( *s == '[' )
+		++s ;
+
+	while ( *s != '\0' && *s != ']' )
+		{
+			i = put_tab_note( get_note( &s ), n, b );
+			if ( i > imax )
+				imax = i ;
+		}
+
+	if ( *s == ']' )
+		++s ;
+
+	return  imax ;
+}
+
+
+int	put_tab_next( const char *buffer, int n, char *b )
+{
+	if ( *buffer == '[' )
+		return put_tab_chord( buffer, n, b ) ;
+	else
+		return put_tab_note( buffer, n, b );
+}
+
+
+void	put_tab( const char *buffer, int n, int *wp )
+{
+	int	d ;
+	int	i = 0 ;
+	int	w = *wp ;
+	char	b[128] ;
+
+	d = width( buffer ) ;
+
+	if ( w > 0 && w % 24 == 0 )
+		printf( "-|-" ) ;
+
+	*wp = w + d ;
+
+	i = put_tab_next( buffer, n, b ) ;
 
 	for ( ; i < d; i++ )
 		putchar( '-' ) ;
@@ -302,7 +452,7 @@ void	put_line( const char *buffer, int line )
 
 	printf( "|-" ) ;
 
-	while ( ( note = get_note( &buffer ) ) )
+	while ( ( note = get_next( &buffer ) ) )
 		{
 			put_tab( note, line, &w );
 		}
@@ -367,7 +517,7 @@ void	music( const char *src )
 {
 	const char	*note ;
 
-	while ( ( note = get_note( &src ) ) )
+	while ( ( note = get_next( &src ) ) )
 		{
 			put_note( note, src - note ) ;
 		}
