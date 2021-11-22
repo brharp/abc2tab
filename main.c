@@ -33,7 +33,7 @@ enum pitch
 };
 
 //	Standard G tuning
-int	tuning[] = { 62, 59, 55, 50 } ;
+int	tuning[] = { D4, B3, G3, D3 } ;
 
 int	divisions   = 24 ;        // subdivions of one beat 
 int	unit_length =  3 ;        // eighth notes by default 
@@ -104,8 +104,9 @@ get_space( const char **src )
 }
 
 
-/*  Get next pitch from input  */
-PITCH	get_pitch( const char **src )
+
+PITCH	/*  Get next pitch from input  */
+get_pitch( const char **src )
 {
 	const char *pos = *src ;
 	PITCH	p ;
@@ -262,9 +263,10 @@ int	note_pitch( const char *note )
 }
 
 
+
 /*  get_note - note parser  */
 
-const char	*get_note( const char **src )
+const char *get_note( const char **src )
 {
 	const char	*start = *src ;
 	const char	*end ;
@@ -521,7 +523,6 @@ void	music( const char *src )
 		{
 			put_note( note, src - note ) ;
 		}
-
 }
 
 
