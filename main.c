@@ -522,7 +522,6 @@ void	music( const char *src )
 			put_note( note, src - note ) ;
 		}
 
-	brk() ;
 }
 
 
@@ -543,6 +542,7 @@ void	abc2tab( void )
 			info( buf );
 		else
 			music( buf );
+	brk() ;
 }
 
 
