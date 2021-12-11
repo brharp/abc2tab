@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include "ps.h"
+
 const char	*get_note( const char **src );
 
 typedef int PITCH ;
@@ -11,6 +13,11 @@ typedef int PITCH ;
 #define SHARP   '^'
 #define FLAT    '_'
 #define NATURAL '='
+
+#define PAGE_WIDTH	612
+#define PAGE_HEIGHT	792
+#define PAGE_COLUMNS	 72
+#define PAGE_ROWS	 72
 
 enum accidental { sharp = SHARP, natural = NATURAL, flat = FLAT };
 
@@ -40,12 +47,27 @@ int	unit_length =  3 ;        // eighth notes by default
 int	nstrings = 4 ;
 
 //	Initialize default page width.
-int	page_width = 72 ;
+float	page_width = PAGE_WIDTH ;        // Letter size paper
+float	page_height = PAGE_HEIGHT ;
+float	page_columns = PAGE_COLUMNS ;
+float	column_width = PAGE_WIDTH / PAGE_COLUMNS ;
+float	row_height = PAGE_HEIGHT / PAGE_ROWS ;
+float	margin_top = 16 ;
+float	margin_left = 16 ;
+float	margin_right = 16 ;
+float	margin_bottom = 16 ;
+
+const char	*font_name = "Palatino-Roman" ;
+const float	font_size = 11 ;
 
 char	output_buffer[BUFSIZE] ;
 int	output_position = 0 ;
-int	output_width = 0 ;
+float	output_width = 0 ;
 
+float	x ;
+float	y ;
+
+const int	line_width = 1 ;
 
 //	Test for an accidental character (sharp, natural, or flat symbol.)  
 int	isacc( const char c )
@@ -207,7 +229,7 @@ int	get_duration( const char **src )
 
 
 /*  Measure the width of a note (in divisions.)  */
-int	note_width( const char *buf )
+float	note_width( const char *buf )
 {
 	/*  Skip over accidentals (which do not affect duration.)  */
 	( void ) get_alter( &buf ) ;
@@ -221,7 +243,7 @@ int	note_width( const char *buf )
 
 
 /*  chord_width - returns width of chord (in divisions)  */
-int	chord_width( const char *s )
+float	chord_width( const char *s )
 {
 	/*  Skip over start of chord marker.  */
 	if ( *s++ != '[' )
@@ -241,13 +263,18 @@ int	chord_width( const char *s )
 }
 
 
-/*  width - returns the width of a musical object (in divisions)  */
-int	width( const char *object )
+
+float	/*  width - returns the width of a musical object (in divisions)  */
+width( const char *object )
 {
+	float w ;
+
 	if ( is_chord( object ) )
-		return chord_width( object ) ;
+		w = chord_width( object ) ;
 	else
-		return note_width( object ) ;
+		w = note_width( object ) ;
+
+	return w * column_width ;
 }
 
 
@@ -378,6 +405,7 @@ int	put_tab_note( const char *buffer, int n, char *b )
 	int	s ;
 	int	f ;
 
+	i = 0 ;
 	p = note_pitch( buffer );
 	s = pitch_string( p ) ;
 
@@ -386,7 +414,7 @@ int	put_tab_note( const char *buffer, int n, char *b )
 			f = p - tuning[n] ;
 			sprintf( b, "%d", f ) ;
 			while ( b[i] != '\0' )
-				putchar( b[i++] ) ;
+				i++ ;
 		}
 
 	return i ;
@@ -424,42 +452,48 @@ int	put_tab_next( const char *buffer, int n, char *b )
 }
 
 
-void	put_tab( const char *buffer, int n, int *wp )
+void	put_tab( const char *buffer, int n, float *wp )
 {
-	int	d ;
-	int	i = 0 ;
-	int	w = *wp ;
+	float	d ;
+	float	w = *wp ;
 	char	b[128] ;
 
 	d = width( buffer ) ;
 
-	if ( w > 0 && w % 24 == 0 )
-		printf( "-|-" ) ;
+//	if ( w > 0 && w % 24 == 0 )
+//		printf( "-|-" ) ;
 
 	*wp = w + d ;
 
-	i = put_tab_next( buffer, n, b ) ;
+	bzero( b, sizeof(b) ) ;
+	put_tab_next( buffer, n, b ) ;
+	ps_moveto( x + w, y ) ;
+	ps_show( b ) ;
+	ps_stroke() ;
 
-	for ( ; i < d; i++ )
-		putchar( '-' ) ;
+//	for ( ; i < d; i++ )
+//		putchar( '-' ) ;
 }
 
 
 void	put_line( const char *buffer, int line )
 {
-	int	w ;
+	float	w ;
 	const char	*note ;
 
 	w = 0 ;
 
-	printf( "|-" ) ;
+	ps_setlinewidth( line_width ) ;
+	ps_moveto( x, y ) ;
+	ps_lineto( x + page_width - margin_left - margin_right, y ) ;
+	ps_stroke() ;
 
 	while ( ( note = get_next( &buffer ) ) )
 		{
 			put_tab( note, line, &w );
 		}
 
-	printf( "-|\n" ) ;
+	y -= row_height ;
 }
 
 
@@ -472,7 +506,8 @@ void	put( const char *buffer )
 			put_line( buffer, x ) ;
 		}
 
-	putchar( '\n' ) ;
+	x = margin_left ;
+	y -= margin_top ;
 }
 
 
@@ -494,8 +529,9 @@ void	put_note( const char *note_buffer, int n )
 {
 	int w, last;
 
-	w = note_width( note_buffer ) ;
+	w = width( note_buffer ) ;
 	last = output_position + n ;
+	fprintf( stderr, "note_width: %f, output_width: %f\n", (double) w, (double) output_width ) ;
 	if ( output_position > 0 && output_width + w > page_width )
 		{
 			last = n ;
@@ -529,7 +565,7 @@ void	music( const char *src )
 //	Process a header line.  
 void	info( const char *buffer )
 {
-	puts( buffer );
+	//puts( buffer );
 }
 
 
@@ -538,12 +574,21 @@ void	abc2tab( void )
 {
 	char buf[BUFSIZE];
 
+	puts( "%!PS" ) ;
+
+	ps_selectfont( font_name, font_size ) ;
+
+	x = margin_left ;
+	y = page_height - margin_top ;
+
 	while ( fgets( buf, BUFSIZE, stdin ) != NULL )
 		if ( isalpha( buf[0] ) && buf[1] == ':' )
 			info( buf );
 		else
 			music( buf );
 	brk() ;
+
+	puts( "showpage" ) ;
 }
 
 
