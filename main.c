@@ -499,11 +499,20 @@ void	put_line( const char *buffer, int line )
 
 void	put( const char *buffer )
 {
-	int	x ;
+	int	i ;
 
-	for ( x = 0; x < nstrings; x++ )
+	/*  Draw staff.  */
+	ps_setlinewidth( line_width ) ;
+	for ( i = 0; i < nstrings; i++ )
 		{
-			put_line( buffer, x ) ;
+			ps_moveto( x, y + i * row_height ) ;
+			ps_lineto( x + page_width - margin_left - margin_right, y ) ;
+	ps_stroke() ;
+
+
+	for ( i = 0; i < nstrings; i++ )
+		{
+			put_line( buffer, i ) ;
 		}
 
 	x = margin_left ;
@@ -531,7 +540,7 @@ void	put_note( const char *note_buffer, int n )
 
 	w = width( note_buffer ) ;
 	last = output_position + n ;
-	fprintf( stderr, "note_width: %f, output_width: %f\n", (double) w, (double) output_width ) ;
+
 	if ( output_position > 0 && output_width + w > page_width )
 		{
 			last = n ;
