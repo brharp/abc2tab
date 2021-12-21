@@ -1,57 +1,86 @@
 #include <stdio.h>
 
+extern FILE *psout ;
+
 void
 ps_moveto( float x, float y )
 {
-	printf( "%f %f moveto\n", x, y ) ;
+	if ( !psout )
+		return ;
+
+	fprintf( psout, "%f %f moveto\n", x, y ) ;
 }
 
 void
 ps_rmoveto( float x, float y )
 {
-	printf( "%f %f rmoveto\n", x, y ) ;
+	if ( !psout )
+		return ;
+
+	fprintf( psout, "%f %f rmoveto\n", x, y ) ;
 }
 
 void
 ps_lineto( float x, float y )
 {
-	printf( "%f %f lineto\n", x, y ) ;
+	if ( !psout )
+		return ;
+
+	fprintf( psout, "%f %f lineto\n", x, y ) ;
 }
 
 void
 ps_rlineto( float x, float y )
 {
-	printf( "%f %f rlineto\n", x, y ) ;
+	if ( !psout )
+		return ;
+
+	fprintf( psout, "%f %f rlineto\n", x, y ) ;
 }
 
 void
 ps_show( const char *string )
 {
+	if ( !psout )
+		return ;
+
 	if ( string != NULL && string[0] != '\0' )
-		printf( "(%s) show\n", string ) ;
+		fprintf( psout, "(%s) show\n", string ) ;
 }
 
 void
 ps_stroke( )
 {
-	printf( "stroke\n" ) ;
+	if ( !psout )
+		return ;
+
+	fprintf( psout, "stroke\n" ) ;
 }
 
 void
 ps_newpath( )
 {
-	printf( "newpath\n" ) ;
+	if ( !psout )
+		return ;
+
+	fprintf( psout, "newpath\n" ) ;
 }
 
 void
 ps_setlinewidth( float w )
 {
-	printf( "%f setlinewidth\n", w ) ;
+	if ( !psout )
+		return ;
+
+	fprintf( psout, "%f setlinewidth\n", w ) ;
 }
 
 void
 ps_selectfont( const char *name, float size )
 {
-	printf( "/%s %f selectfont\n", name, size ) ;
+	if ( !psout )
+		return ;
+
+	fprintf( psout, "/%s %f selectfont\n", name, size ) ;
 }
 

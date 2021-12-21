@@ -3,7 +3,7 @@
 for test in *.in
   do
     tname=$(basename $test .in)
-    ../a.out < $tname.in > $tname.out 2> $tname.err
+    ../a.out -o $tname.ps < $tname.in > $tname.out 2> $tname.err
     # Check standard output
     if ! diff $tname.out $tname.out.ref
       then
@@ -13,6 +13,11 @@ for test in *.in
     if [ -f $tname.err.ref ]
       then
         diff $tname.err $tname.err.ref
+      fi
+    # Check postscript output
+    if [ -f $tname.ps.ref ]
+      then
+        diff $tname.ps $tname.ps.ref
       fi
   done
 

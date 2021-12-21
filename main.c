@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <assert.h>
 #include <string.h>
@@ -18,6 +19,8 @@ typedef int PITCH ;
 #define PAGE_HEIGHT	792
 #define PAGE_COLUMNS	 72
 #define PAGE_ROWS	 72
+
+FILE *psout = NULL;
 
 enum accidental { sharp = SHARP, natural = NATURAL, flat = FLAT };
 
@@ -56,6 +59,10 @@ float	margin_top = 16 ;
 float	margin_left = 16 ;
 float	margin_right = 16 ;
 float	margin_bottom = 16 ;
+
+int	lines_per_page ;
+int	measures_per_line ;
+float	divisions_per_measure ;
 
 const char	*font_name = "Palatino-Roman" ;
 const float	font_size = 11 ;
@@ -414,7 +421,7 @@ int	put_tab_note( const char *buffer, int n, char *b )
 			f = p - tuning[n] ;
 			sprintf( b, "%d", f ) ;
 			while ( b[i] != '\0' )
-				i++ ;
+				putchar( b[i++] ) ;
 		}
 
 	return i ;
@@ -454,25 +461,31 @@ int	put_tab_next( const char *buffer, int n, char *b )
 
 void	put_tab( const char *buffer, int n, float *wp )
 {
+	int	i = 0 ;
 	float	d ;
 	float	w = *wp ;
 	char	b[128] ;
 
 	d = width( buffer ) ;
 
-//	if ( w > 0 && w % 24 == 0 )
-//		printf( "-|-" ) ;
+	if ( w > 0 && (int)(w / column_width) % 24 == 0 )
+		{
+			if ( n == 0 || n + 1 == nstrings )
+				printf( "-+-" ) ;
+			else
+				printf( "-|-" ) ;
+		}
 
 	*wp = w + d ;
 
 	bzero( b, sizeof(b) ) ;
-	put_tab_next( buffer, n, b ) ;
+	i = put_tab_next( buffer, n, b ) ;
 	ps_moveto( x + w, y ) ;
 	ps_show( b ) ;
 	ps_stroke() ;
 
-//	for ( ; i < d; i++ )
-//		putchar( '-' ) ;
+	for ( ; i < (int)(d/column_width); i++ )
+		putchar( '-' ) ;
 }
 
 
@@ -482,6 +495,11 @@ void	put_line( const char *buffer, int line )
 	const char	*note ;
 
 	w = 0 ;
+
+	if ( line == 0 || line + 1 == nstrings )
+		printf( "+-" ) ;
+	else
+		printf( "|-" ) ;
 
 	ps_setlinewidth( line_width ) ;
 	ps_moveto( x, y ) ;
@@ -493,6 +511,11 @@ void	put_line( const char *buffer, int line )
 			put_tab( note, line, &w );
 		}
 
+	if ( line == 0 || line + 1 == nstrings )
+		printf( "-+\n" ) ;
+	else
+		printf( "-|\n" ) ;
+
 	y -= row_height ;
 }
 
@@ -501,14 +524,7 @@ void	put( const char *buffer )
 {
 	int	i ;
 
-	/*  Draw staff.  */
-	ps_setlinewidth( line_width ) ;
-	for ( i = 0; i < nstrings; i++ )
-		{
-			ps_moveto( x, y + i * row_height ) ;
-			ps_lineto( x + page_width - margin_left - margin_right, y ) ;
-	ps_stroke() ;
-
+	putchar( '\n' ) ;
 
 	for ( i = 0; i < nstrings; i++ )
 		{
@@ -583,7 +599,7 @@ void	abc2tab( void )
 {
 	char buf[BUFSIZE];
 
-	puts( "%!PS" ) ;
+	if ( psout ) fputs( "%!PS\n", psout ) ;
 
 	ps_selectfont( font_name, font_size ) ;
 
@@ -597,27 +613,28 @@ void	abc2tab( void )
 			music( buf );
 	brk() ;
 
-	puts( "showpage" ) ;
+	if ( psout ) fputs( "showpage", psout ) ;
 }
-
-
-#ifdef DEBUG
-void	test( void )
-{
-	assert( ispitch( 'a' ) ) ;
-	assert( !ispitch( 'h' ) ) ;
-	assert( ispitch( 'A' ) ) ;
-	assert( !ispitch( 'H' ) ) ;
-}
-#endif
 
 
 int 
 main( int argc, char *argv[] ) 
 {
-#ifdef DEBUG
-	test() ;
-#endif
+	char *s;
+
+	while ( --argc > 0 && (*++argv)[0] == '-' )
+		for ( s = argv[0]+1; *s != '\0'; s++ )
+			switch ( *s ) {
+			case 'o':
+				psout = fopen( *++argv, "w" );
+				if ( psout == NULL ) {
+					fprintf( stderr, "error opening %s", *argv );
+					exit( EXIT_FAILURE );
+				}
+				--argc;
+				break;
+			}
+
 	abc2tab() ;
 }
 

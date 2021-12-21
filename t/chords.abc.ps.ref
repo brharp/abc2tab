@@ -1,0 +1,30 @@
+%!PS
+/Palatino-Roman 11.000000 selectfont
+1.000000 setlinewidth
+16.000000 776.000000 moveto
+596.000000 776.000000 lineto
+stroke
+16.000000 776.000000 moveto
+(2) show
+stroke
+1.000000 setlinewidth
+16.000000 765.000000 moveto
+596.000000 765.000000 lineto
+stroke
+16.000000 765.000000 moveto
+(1) show
+stroke
+1.000000 setlinewidth
+16.000000 754.000000 moveto
+596.000000 754.000000 lineto
+stroke
+16.000000 754.000000 moveto
+stroke
+1.000000 setlinewidth
+16.000000 743.000000 moveto
+596.000000 743.000000 lineto
+stroke
+16.000000 743.000000 moveto
+(2) show
+stroke
+showpage
